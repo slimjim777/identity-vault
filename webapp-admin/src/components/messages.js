@@ -21,6 +21,7 @@ var intlData = {
 
     en: {
       "account": "Account",
+      "account-api-key": "Management API key for the account",
       "account-description": "The authority-id for the account",
       "account-keys": "Account Key Assertions",
       "accounts": "Accounts",

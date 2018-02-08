@@ -230,6 +230,12 @@ class AccountDetail extends Component {
                                 <td className="col-3 label">{T('reseller')}:</td>
                                 <td className="col-9">{acc.ResellerAPI ? <i className="fa fa-check"></i> :  <i className="fa fa-times"></i>}</td>
                             </tr>
+                            {acc.ResellerAPI ?
+                            <tr>
+                                <td className="col-3 label">{T('api-key')}:</td>
+                                <td className="col-9" title={T('account-api-key')}>{acc.APIKey}</td>
+                            </tr>
+                            : ''}
                           </tbody>
                        </table>
                     </div>
