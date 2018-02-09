@@ -87,7 +87,10 @@ func ModelsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbModels, err := datastore.Environ.DB.ListAllowedModels(authUser)
+	vars := mux.Vars(r)
+	accountCode := vars["account_code"]
+
+	dbModels, err := datastore.Environ.DB.ListAllowedModels(accountCode, authUser)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		errorMessage := fmt.Sprintf("%v", err)

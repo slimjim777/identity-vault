@@ -33,7 +33,10 @@ import SigningLog from './components/SigningLog'
 import SystemUserForm from './components/SystemUserForm'
 import UserList from './components/UserList'
 import UserEdit from './components/UserEdit'
-import {sectionFromPath, sectionIdFromPath, subSectionIdFromPath} from './components/Utils'
+import Accounts from './models/accounts'
+import Keypairs from './models/keypairs'
+import Models from './models/models'
+import {getAccount, saveAccount, sectionFromPath, sectionIdFromPath, subSectionIdFromPath} from './components/Utils'
 import createHistory from 'history/createBrowserHistory'
 import './sass/App.css'
 
@@ -44,15 +47,80 @@ class App extends Component {
     super(props)
     this.state = {
       location: history.location,
-      token: props.token || {},
+      accounts: [],
+      selectedAccount: getAccount() || {},
+      keypairs: [],
+      models: [],
     }
 
     history.listen(this.handleNavigation.bind(this))
+    this.getAccounts()
   }
 
   handleNavigation(location) {
     this.setState({ location: location })
     window.scrollTo(0, 0)
+  }
+
+  getAccounts() {
+    Accounts.list().then((response) => {
+        var data = JSON.parse(response.body);
+        var message = "";
+        if (!data.success) {
+            message = data.message;
+        }
+
+        var selectedAccount = this.state.selectedAccount;
+        if ((!this.state.selectedAccount.code) && (!getAccount().code)) {
+          // Set to the first in the account list
+          if (data.accounts.length > 0) {
+            selectedAccount = data.accounts[0]
+            saveAccount(selectedAccount)
+          }
+        }
+
+        this.setState({accounts: data.accounts, message: message});
+        this.updateDataForRoute(selectedAccount)
+    });
+  }
+
+  getKeypairs(account) {
+    Keypairs.list(account).then((response) => {
+        var data = JSON.parse(response.body);
+        var message = "";
+        if (!data.success) {
+            message = data.message;
+        }
+        this.setState({keypairs: data.keypairs, message: message});
+    });
+  }
+
+  getModels(account) {
+    Models.list(account).then((response) => {
+        var data = JSON.parse(response.body);
+        var message = "";
+        if (!data.success) {
+            message = data.message;
+        }
+        this.setState({models: data.models, message: message});
+    });
+  }
+
+  updateDataForRoute(selectedAccount) {
+    var currentSection = sectionFromPath(window.location.pathname);
+
+    if (currentSection === 'accounts') {
+      this.getKeypairs(selectedAccount.AuthorityID)
+      this.getModels(selectedAccount.AuthorityID)
+    }
+  }
+
+  handleAccountChange = (account) => {
+    console.log("===", account)
+    saveAccount(account)
+    this.setState({selectedAccount: account})
+
+    this.updateDataForRoute(account)
   }
 
   renderModels() {
@@ -72,19 +140,24 @@ class App extends Component {
     const id = sectionIdFromPath(window.location.pathname, 'accounts')
     const sub = subSectionIdFromPath(window.location.pathname, 'accounts')
 
+    // Only show the selected account
+    var accounts = this.state.accounts.filter((a) => {
+      return a.ID === this.state.selectedAccount.ID
+    })
+
     switch(id) {
       case 'upload':
-        return <AccountForm token={this.props.token} />
+        return <AccountForm token={this.props.token} selectedAccount={this.state.selectedAccount} accounts={accounts} keypairs={this.state.keypairs} models={this.state.models} />
       case 'new':
-        return <AccountEdit token={this.props.token} />
+        return <AccountEdit token={this.props.token} selectedAccount={this.state.selectedAccount} accounts={accounts} keypairs={this.state.keypairs} models={this.state.models} />
       case 'account':
-        return <AccountEdit id={sub} token={this.props.token} />
+        return <AccountEdit id={sub} token={this.props.token} selectedAccount={this.state.selectedAccount} accounts={accounts} keypairs={this.state.keypairs} models={this.state.models} />
       case 'view':
-        return <AccountDetail id={sub} token={this.props.token} />
+        return <AccountDetail id={sub} token={this.props.token} selectedAccount={this.state.selectedAccount} accounts={accounts} keypairs={this.state.keypairs} models={this.state.models} />
       case 'key-assertion':
-        return <AccountKeyForm token={this.props.token} />
+        return <AccountKeyForm token={this.props.token} selectedAccount={this.state.selectedAccount} accounts={accounts} keypairs={this.state.keypairs} models={this.state.models} />
       default:
-        return <AccountList token={this.props.token} />
+        return <AccountList token={this.props.token} selectedAccount={this.state.selectedAccount} accounts={accounts} keypairs={this.state.keypairs} models={this.state.models} />
     }
   }
 
@@ -119,10 +192,12 @@ class App extends Component {
   render() {
 
     var currentSection = sectionFromPath(window.location.pathname);
+    console.log('---selected', this.state.selectedAccount)
 
     return (
       <div className="App">
-          <Header token={this.props.token} />
+          <Header token={this.props.token} accounts={this.state.accounts} selectedAccount={this.state.selectedAccount}
+                  onAccountChange={this.handleAccountChange} />
 
           <div className="spacer" />
   

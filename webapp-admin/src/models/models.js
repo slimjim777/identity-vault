@@ -19,8 +19,8 @@ import Ajax from './Ajax';
 var Models = {
 	url: 'models',
 
-	list: function () {
-		return Ajax.get(this.url);
+	list: function (account) {
+		return Ajax.get(account + '/' + this.url);
 	},
 
 	get: function(modelId) {

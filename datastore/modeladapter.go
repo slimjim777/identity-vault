@@ -33,16 +33,16 @@ const validModelNamePattern = defaultNicknamePattern
 var validModelNameRegexp = regexp.MustCompile(validModelNamePattern)
 
 // ListAllowedModels returns the models allowed to be seen to the authorization
-func (db *DB) ListAllowedModels(authorization User) ([]Model, error) {
+func (db *DB) ListAllowedModels(accountCode string, authorization User) ([]Model, error) {
 	switch authorization.Role {
 	case Invalid: // Authentication is disabled
 		fallthrough
 	case Superuser:
-		return db.listAllModels()
+		return db.listAllModels(accountCode)
 	case Standard:
 		fallthrough
 	case Admin:
-		return db.listModelsFilteredByUser(authorization.Username)
+		return db.listModelsFilteredByUser(accountCode, authorization.Username)
 	default:
 		return []Model{}, nil
 	}

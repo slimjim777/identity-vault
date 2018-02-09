@@ -269,6 +269,25 @@ func (db *DB) CheckUserInAccount(username, authorityID string) bool {
 	return count > 0
 }
 
+// UserFromAccountAPIKey returns a user by checking an account API key
+func (db *DB) UserFromAccountAPIKey(apiKey string) (User, error) {
+
+	user := User{}
+
+	account, err := db.GetAccountByAPIKey(apiKey)
+	if err != nil {
+		log.Printf("Could not fetch account: %v", err)
+		return user, err
+	}
+
+	// Return an Admin user that can access this single account
+	user.Username = apiKey
+	user.Role = Admin
+	user.Accounts = []Account{account}
+
+	return user, nil
+}
+
 func (db *DB) putUserAccounts(userID int, accounts []Account, tx *sql.Tx) error {
 	// first, delete previous registers if any
 	_, err := tx.Exec(deleteUserAccountsSQL, userID)

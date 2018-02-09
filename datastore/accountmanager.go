@@ -31,26 +31,32 @@ const createAccountTableSQL = `
 		authority_id  varchar(200) not null unique,
 		assertion     text default '',
 		resellerapi   bool default false,
-		api_key       varchar(200) not null
+		api_key       varchar(200) not null,
+		name          varchar(200) not null,
+		active        boolean default true
 	)
 `
 
-const createAccountSQL = "INSERT INTO account (authority_id, assertion, resellerapi, api_key) VALUES ($1,$2,$3,$4)"
-const listAccountsSQL = "select id, authority_id, assertion, resellerapi, api_key from account order by authority_id"
-const getAccountSQL = "select id, authority_id, assertion, resellerapi, api_key from account where authority_id=$1"
+const createAccountSQL = "INSERT INTO account (authority_id, assertion, resellerapi, api_key, name, active) VALUES ($1,$2,$3,$4,$5,$6)"
+const listAccountsSQL = "select id, authority_id, assertion, resellerapi, api_key, name, active from account order by authority_id"
+const getAccountSQL = "select id, authority_id, assertion, resellerapi, api_key, name, active from account where authority_id=$1"
 
-const getAccountByIDSQL = "select id, authority_id, assertion, resellerapi, api_key from account where id=$1"
+const getAccountByIDSQL = "select id, authority_id, assertion, resellerapi, api_key, name, active from account where id=$1"
 const getUserAccountByIDSQL = `
-	select a.id, authority_id, assertion, resellerapi, api_key 
+	select a.id, authority_id, assertion, resellerapi, api_key, name, active 
 	from account a
 	inner join useraccountlink l on a.id = l.account_id
 	inner join userinfo u on l.user_id = u.id
 	where id=$1 and u.username=$2`
+const getAccountByAPIKeySQL = "select id, authority_id, assertion, resellerapi, api_key, name, active from account where api_key=$1"
 
-const updateAccountSQL = "UPDATE account SET authority_id=$2, assertion=$3, resellerapi=$4, api_key=$5 WHERE id=$1"
+const updateAccountSQL = `
+	UPDATE account 
+	SET authority_id=$2, assertion=$3, resellerapi=$4, api_key=$5, name=$6, active=$7 
+	WHERE id=$1`
 const updateUserAccountSQL = `
 	UPDATE account a
-	SET authority_id=$3, assertion=$4, resellerapi=$5, api_key=$6
+	SET authority_id=$3, assertion=$4, resellerapi=$5, api_key=$6, name=$6, active=$7 
 	INNER JOIN useraccountlink l on a.id = l.account_id
 	INNER JOIN userinfo u on l.user_id = u.id
 	WHERE id=$1 AND u.username=$2
@@ -75,7 +81,7 @@ const listUserAccountsSQL = `
 `
 
 const listNotUserAccountsSQL = `
-	select id, authority_id, assertion, resellerapi, api_key 
+	select id, authority_id, assertion, resellerapi, api_key, name, active 
 	from account
 	where id not in (
 		select a.id 
@@ -90,13 +96,19 @@ const listNotUserAccountsSQL = `
 const alterAccountResellerAPI = "ALTER TABLE account ADD COLUMN resellerapi bool DEFAULT false"
 
 // Add the API key field to the account table (nullable)
-const alterAccountAPIKey = "ALTER TABLE account ADD COLUMN api_key varchar(200) DEFAULT ''"
+const alterAccountAPIKeyName = `
+	ALTER TABLE account 
+		ADD COLUMN api_key varchar(200) DEFAULT '',
+		ADD COLUMN name varchar(200) DEFAULT '',
+		ADD COLUMN active boolean DEFAULT true`
 
 // Make the API key not-nullable
-const alterAccountAPIKeyNotNullable = `
+const alterAccountAPIKeyNameNotNullable = `
 	ALTER TABLE account
-	ALTER COLUMN api_key SET NOT null,
-	ALTER COLUMN api_key DROP DEFAULT
+		ALTER COLUMN api_key SET NOT null,
+		ALTER COLUMN name SET NOT null,
+		ALTER COLUMN api_key DROP DEFAULT,
+		ALTER COLUMN name DROP DEFAULT
 `
 
 // Account holds the store account assertion in the local database
@@ -106,6 +118,8 @@ type Account struct {
 	Assertion   string
 	ResellerAPI bool
 	APIKey      string
+	Name        string
+	Active      bool
 }
 
 // CreateAccountTable creates the database table for an account.
@@ -118,15 +132,15 @@ func (db *DB) CreateAccountTable() error {
 func (db *DB) AlterAccountTable() error {
 	db.Exec(alterAccountResellerAPI)
 
-	err := db.addAccountAPIKeyField()
+	err := db.addAccountAPIKeyNameField()
 	return err
 }
 
-// addAccountAPIKeyField adds and defaults the API key field to the account table
-func (db *DB) addAccountAPIKeyField() error {
+// addAccountAPIKeyNameField adds and defaults the API key field to the account table
+func (db *DB) addAccountAPIKeyNameField() error {
 
 	// Add the API key field to the account table
-	_, err := db.Exec(alterAccountAPIKey)
+	_, err := db.Exec(alterAccountAPIKeyName)
 	if err != nil {
 		// Field already exists so skip
 		return nil
@@ -149,13 +163,14 @@ func (db *DB) addAccountAPIKeyField() error {
 			return errors.New("Error generating random string for the API key")
 		}
 
-		// Update the API key on the model
+		// Update the API key and name on the model
 		acc.APIKey = apiKey
+		acc.Name = acc.AuthorityID
 		db.updateAccount(acc)
 	}
 
 	// Add the constraints to the API key field
-	_, err = db.Exec(alterAccountAPIKeyNotNullable)
+	_, err = db.Exec(alterAccountAPIKeyNameNotNullable)
 	if err != nil {
 		return err
 	}
@@ -197,7 +212,7 @@ func (db *DB) CreateAccount(account Account) error {
 	}
 	account.APIKey = apiKey
 
-	_, err = db.Exec(createAccountSQL, account.AuthorityID, account.Assertion, account.ResellerAPI, account.APIKey)
+	_, err = db.Exec(createAccountSQL, account.AuthorityID, account.Assertion, account.ResellerAPI, account.APIKey, account.Name, account.Active)
 	if err != nil {
 		log.Printf("Error creating the database account: %v\n", err)
 		return err
@@ -209,9 +224,22 @@ func (db *DB) CreateAccount(account Account) error {
 func (db *DB) GetAccount(authorityID string) (Account, error) {
 	account := Account{}
 
-	err := db.QueryRow(getAccountSQL, authorityID).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey)
+	err := db.QueryRow(getAccountSQL, authorityID).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey, &account.Name, &account.Active)
 	if err != nil {
 		log.Printf("Error retrieving account: %v\n", err)
+		return account, err
+	}
+
+	return account, nil
+}
+
+// GetAccountByAPIKey fetches a single account from the database by the API key
+func (db *DB) GetAccountByAPIKey(apiKey string) (Account, error) {
+	account := Account{}
+
+	err := db.QueryRow(getAccountByAPIKeySQL, apiKey).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey, &account.Name, &account.Active)
+	if err != nil {
+		log.Printf("Error retrieving account by API key: %v\n", err)
 		return account, err
 	}
 
@@ -222,7 +250,7 @@ func (db *DB) GetAccount(authorityID string) (Account, error) {
 func (db *DB) getAccountByID(accountID int) (Account, error) {
 	account := Account{}
 
-	err := db.QueryRow(getAccountByIDSQL, accountID).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey)
+	err := db.QueryRow(getAccountByIDSQL, accountID).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey, &account.Name, &account.Active)
 	if err != nil {
 		log.Printf("Error retrieving account: %v\n", err)
 		return account, err
@@ -235,7 +263,7 @@ func (db *DB) getAccountByID(accountID int) (Account, error) {
 func (db *DB) getUserAccountByID(accountID int, username string) (Account, error) {
 	account := Account{}
 
-	err := db.QueryRow(getUserAccountByIDSQL, accountID, username).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey)
+	err := db.QueryRow(getUserAccountByIDSQL, accountID, username).Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey, &account.Name, &account.Active)
 	if err != nil {
 		log.Printf("Error retrieving account: %v\n", err)
 		return account, err
@@ -252,7 +280,7 @@ func (db *DB) updateAccount(account Account) error {
 	}
 	account.APIKey = apiKey
 
-	_, err = db.Exec(updateAccountSQL, account.ID, account.AuthorityID, account.Assertion, account.ResellerAPI, account.APIKey)
+	_, err = db.Exec(updateAccountSQL, account.ID, account.AuthorityID, account.Assertion, account.ResellerAPI, account.APIKey, account.Name, account.Active)
 	if err != nil {
 		log.Printf("Error updating the database account: %v\n", err)
 		return err
@@ -269,7 +297,7 @@ func (db *DB) updateUserAccount(account Account, username string) error {
 	}
 	account.APIKey = apiKey
 
-	_, err = db.Exec(updateUserAccountSQL, account.ID, username, account.AuthorityID, account.Assertion, account.ResellerAPI, account.APIKey)
+	_, err = db.Exec(updateUserAccountSQL, account.ID, username, account.AuthorityID, account.Assertion, account.ResellerAPI, account.APIKey, account.Name, account.Active)
 	if err != nil {
 		log.Printf("Error updating the database account: %v\n", err)
 		return err
@@ -318,7 +346,7 @@ func rowsToAccounts(rows *sql.Rows) ([]Account, error) {
 
 	for rows.Next() {
 		account := Account{}
-		err := rows.Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey)
+		err := rows.Scan(&account.ID, &account.AuthorityID, &account.Assertion, &account.ResellerAPI, &account.APIKey, &account.Name, &account.Active)
 		if err != nil {
 			return nil, err
 		}

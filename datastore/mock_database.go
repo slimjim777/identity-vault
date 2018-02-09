@@ -125,7 +125,7 @@ func (mdb *MockDB) UpdateAccount(account Account, authorization User) error {
 }
 
 // ListAllowedModels Mock the database response for a list of models
-func (mdb *MockDB) ListAllowedModels(authorization User) ([]Model, error) {
+func (mdb *MockDB) ListAllowedModels(accountCode string, authorization User) ([]Model, error) {
 
 	var models []Model
 	if authorization.Username == "" || authorization.Username == "sv" {
@@ -172,7 +172,7 @@ func (mdb *MockDB) GetAllowedModel(modelID int, authorization User) (Model, erro
 
 	var model Model
 	found := false
-	models, _ := mdb.ListAllowedModels(authorization)
+	models, _ := mdb.ListAllowedModels("system", authorization)
 
 	for _, mdl := range models {
 		if mdl.ID == modelID {
@@ -191,7 +191,7 @@ func (mdb *MockDB) GetAllowedModel(modelID int, authorization User) (Model, erro
 
 // UpdateAllowedModel mocks the model update.
 func (mdb *MockDB) UpdateAllowedModel(model Model, authorization User) (string, error) {
-	models, _ := mdb.ListAllowedModels(authorization)
+	models, _ := mdb.ListAllowedModels("system", authorization)
 	found := false
 
 	for _, mdl := range models {
@@ -209,7 +209,7 @@ func (mdb *MockDB) UpdateAllowedModel(model Model, authorization User) (string, 
 
 // DeleteAllowedModel mocks the model deletion.
 func (mdb *MockDB) DeleteAllowedModel(model Model, authorization User) (string, error) {
-	models, _ := mdb.ListAllowedModels(authorization)
+	models, _ := mdb.ListAllowedModels("system", authorization)
 	found := false
 
 	for _, mdl := range models {
@@ -746,7 +746,7 @@ func (mdb *ErrorMockDB) UpdateAccount(account Account, authorization User) error
 }
 
 // ListAllowedModels ModelsList Mock the database response for a list of models
-func (mdb *ErrorMockDB) ListAllowedModels(authorization User) ([]Model, error) {
+func (mdb *ErrorMockDB) ListAllowedModels(accountCode string, authorization User) ([]Model, error) {
 	return nil, errors.New("Error getting the models")
 }
 

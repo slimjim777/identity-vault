@@ -152,3 +152,19 @@ function isUser(role, token) {
 
     return (token.role >= role)
 }
+
+export function saveAccount(account) {
+    sessionStorage.setItem('accountId', account.ID);
+    sessionStorage.setItem('accountCode', account.AuthorityID);
+    sessionStorage.setItem('accountName', account.Name);
+    sessionStorage.setItem('accountActive', account.Active);
+}
+
+export function getAccount() {
+    return {
+        ID: parseInt(sessionStorage.getItem('accountId'),10),
+        AuthorityID: sessionStorage.getItem('accountCode'),
+        Name: sessionStorage.getItem('accountName'),
+        Active: sessionStorage.getItem('accountActive')==='true',
+    }
+}

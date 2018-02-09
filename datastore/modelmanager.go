@@ -36,22 +36,23 @@ const createModelTableSQL = `
 	)
 `
 const listModelsSQL = `
-	select m.id, brand_id, name, m.keypair_id, api_key, k.authority_id, k.key_id, k.active, user_keypair_id, ku.authority_id, ku.key_id, ku.active, ku.assertion
-	from model m
-	inner join keypair k on k.id = m.keypair_id
-	inner join keypair ku on ku.id = m.user_keypair_id
-	order by name
+	SELECT m.id, m.brand_id, m.name, m.keypair_id, api_key, k.authority_id, k.key_id, k.active, user_keypair_id, ku.authority_id, ku.key_id, ku.active, ku.assertion
+	FROM model m
+	INNER JOIN keypair k ON k.id = m.keypair_id
+	INNER JOIN keypair ku ON ku.id = m.user_keypair_id
+	WHERE m.brand_id = $1
+	ORDER BY m.name
 `
 const listModelsForUserSQL = `
-	select m.id, brand_id, m.name, m.keypair_id, api_key, k.authority_id, k.key_id, k.active, user_keypair_id, ku.authority_id, ku.key_id, ku.active, ku.assertion
-	from model m
-	inner join keypair k on k.id = m.keypair_id
-	inner join keypair ku on ku.id = m.user_keypair_id
-	inner join account acc on acc.authority_id=m.brand_id
-	inner join useraccountlink ua on ua.account_id=acc.id
-	inner join userinfo u on ua.user_id=u.id
-	where u.username=$1
-	order by name
+	SELECT m.id, brand_id, m.name, m.keypair_id, api_key, k.authority_id, k.key_id, k.active, user_keypair_id, ku.authority_id, ku.key_id, ku.active, ku.assertion
+	FROM model m
+	INNER JOIN keypair k ON k.id = m.keypair_id
+	INNER JOIN keypair ku ON ku.id = m.user_keypair_id
+	INNER JOIN account acc ON acc.authority_id=m.brand_id
+	INNER JOIN useraccountlink ua ON ua.account_id=acc.id
+	INNER JOIN userinfo u ON ua.user_id=u.id
+	WHERE u.username=$1 AND brand_id=$2
+	ORDER BY m.name
 `
 const findModelSQL = `
 	select m.id, brand_id, name, m.keypair_id, api_key, k.authority_id, k.key_id, k.active, k.sealed_key, user_keypair_id, ku.authority_id, ku.key_id, ku.active, ku.sealed_key, ku.assertion
@@ -215,8 +216,26 @@ func (db *DB) addAPIKeyField() error {
 		return nil
 	}
 
+	accounts, err := db.listAllAccounts()
+	for _, a := range accounts {
+		err = db.updateModelAPIKeyFieldForAccount(a.AuthorityID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add the constraints to the API key field
+	_, err = db.Exec(alterModelAPIKeyNotNullable)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) updateModelAPIKeyFieldForAccount(accountCode string) error {
 	// Default the API key for any records where it is empty
-	models, err := db.listAllModels()
+	models, err := db.listAllModels(accountCode)
 	if err != nil {
 		return err
 	}
@@ -236,24 +255,17 @@ func (db *DB) addAPIKeyField() error {
 		model.APIKey = apiKey
 		db.updateModel(model)
 	}
-
-	// Add the constraints to the API key field
-	_, err = db.Exec(alterModelAPIKeyNotNullable)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (db *DB) listAllModels() ([]Model, error) {
-	return db.listModelsFilteredByUser(anyUserFilter)
+func (db *DB) listAllModels(accountCode string) ([]Model, error) {
+	return db.listModelsFilteredByUser(accountCode, anyUserFilter)
 }
 
 // listModels fetches the full catalogue of models from the database.
 // If a username is supplied, then only show the models for the user
 // [Permissions: Admin]
-func (db *DB) listModelsFilteredByUser(username string) ([]Model, error) {
+func (db *DB) listModelsFilteredByUser(accountCode, username string) ([]Model, error) {
 	models := []Model{}
 
 	var (
@@ -262,9 +274,9 @@ func (db *DB) listModelsFilteredByUser(username string) ([]Model, error) {
 	)
 
 	if len(username) == 0 {
-		rows, err = db.Query(listModelsSQL)
+		rows, err = db.Query(listModelsSQL, accountCode)
 	} else {
-		rows, err = db.Query(listModelsForUserSQL, username)
+		rows, err = db.Query(listModelsForUserSQL, username, accountCode)
 	}
 	if err != nil {
 		log.Printf("Error retrieving database models: %v\n", err)

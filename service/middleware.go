@@ -88,7 +88,7 @@ func MiddlewareWithCSRF(inner http.Handler) http.Handler {
 		csrf.HttpOnly(csrfSecure),
 	)
 
-	return CSRF(inner)
+	return CSRF(Middleware(inner))
 }
 
 // CORSMiddleware handles the header options for cross-origin requests (used in development only)

@@ -58,7 +58,7 @@ func AdminRouter() *mux.Router {
 
 	// API routes: models admin
 	router.Handle("/v1/version", MiddlewareWithCSRF(http.HandlerFunc(VersionHandler))).Methods("GET")
-	router.Handle("/v1/models", MiddlewareWithCSRF(http.HandlerFunc(ModelsHandler))).Methods("GET")
+	router.Handle("/v1/{account_code}/models", MiddlewareWithCSRF(http.HandlerFunc(ModelsHandler))).Methods("GET")
 	router.Handle("/v1/models/assertion", MiddlewareWithCSRF(http.HandlerFunc(ModelAssertionHeadersHandler))).Methods("POST")
 	router.Handle("/v1/models", MiddlewareWithCSRF(http.HandlerFunc(ModelCreateHandler))).Methods("POST")
 	router.Handle("/v1/models/{id:[0-9]+}", MiddlewareWithCSRF(http.HandlerFunc(ModelGetHandler))).Methods("GET")
@@ -66,7 +66,7 @@ func AdminRouter() *mux.Router {
 	router.Handle("/v1/models/{id:[0-9]+}", MiddlewareWithCSRF(http.HandlerFunc(ModelDeleteHandler))).Methods("DELETE")
 
 	// API routes: signing-keys
-	router.Handle("/v1/keypairs", MiddlewareWithCSRF(http.HandlerFunc(KeypairListHandler))).Methods("GET")
+	router.Handle("/v1/{account_code}/keypairs", MiddlewareWithCSRF(http.HandlerFunc(KeypairListHandler))).Methods("GET")
 	router.Handle("/v1/keypairs", MiddlewareWithCSRF(http.HandlerFunc(KeypairCreateHandler))).Methods("POST")
 	router.Handle("/v1/keypairs/{id:[0-9]+}/disable", MiddlewareWithCSRF(http.HandlerFunc(KeypairDisableHandler))).Methods("POST")
 	router.Handle("/v1/keypairs/{id:[0-9]+}/enable", MiddlewareWithCSRF(http.HandlerFunc(KeypairEnableHandler))).Methods("POST")

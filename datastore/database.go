@@ -31,7 +31,7 @@ const anyUserFilter = ""
 
 // Datastore interface for the database logic
 type Datastore interface {
-	ListAllowedModels(authorization User) ([]Model, error)
+	ListAllowedModels(accountCode string, authorization User) ([]Model, error)
 	FindModel(brandID, modelName, apiKey string) (Model, error)
 	GetAllowedModel(modelID int, authorization User) (Model, error)
 	UpdateAllowedModel(model Model, authorization User) (string, error)
@@ -77,6 +77,7 @@ type Datastore interface {
 	ListAllowedAccounts(authorization User) ([]Account, error)
 	GetAccount(authorityID string) (Account, error)
 	GetAccountByID(accountID int, authorization User) (Account, error)
+	GetAccountByAPIKey(apiKey string) (Account, error)
 	CreateAccount(account Account) error
 	UpdateAccount(account Account, authorization User) error
 	PutAccount(account Account, authorization User) (string, error)

@@ -190,3 +190,20 @@ div.filter-section:last-of-type {
 .show {
     display: block !important;
 }
+
+form#account-form select {
+    background-color: transparent;
+    border: 0;
+    margin-top: 0;
+    color: $color-brand;
+    min-height: 48px;
+    background-position-x: right 0.25rem;
+}
+
+form#account-form option {
+    background-color: #ffffff;
+}
+
+input:focus, select:focus, textarea:focus, button:focus {
+    outline: none;
+}

@@ -61,11 +61,22 @@ func KeypairListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keypairs, err := datastore.Environ.DB.ListAllowedKeypairs(authUser)
+	vars := mux.Vars(r)
+	accountCode := vars["account_code"]
+
+	userKeypairs, err := datastore.Environ.DB.ListAllowedKeypairs(authUser)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		formatKeypairsResponse(false, "error-fetch-keypairs", "", err.Error(), nil, w)
 		return
+	}
+
+	// Filter the list down to the keypairs for the selected account
+	keypairs := []datastore.Keypair{}
+	for _, k := range userKeypairs {
+		if k.AuthorityID == accountCode {
+			keypairs = append(keypairs, k)
+		}
 	}
 
 	// Return successful JSON response with the list of models

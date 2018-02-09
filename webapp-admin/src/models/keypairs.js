@@ -19,8 +19,8 @@ import Ajax from './Ajax';
 var Keypair = {
 	url: 'keypairs',
 
-	list: function () {
-			return Ajax.get(this.url);
+	list: function (account) {
+			return Ajax.get(account + '/' + this.url);
 	},
 
 	enable:  function(keypairId) {
